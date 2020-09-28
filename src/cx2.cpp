@@ -267,7 +267,7 @@ static void handlePacket(struct nspire_handle *nsp_handle, NNSEMessage *message,
 
 	if(message->reqAck & 1)
 	{
-		NNSEMessage ack{};
+		NNSEMessage ack = {};
 		ack.misc = message->misc;
 		ack.service = uint8_t(message->service | AckFlag);
 		ack.src = message->dest;
@@ -293,14 +293,14 @@ static void handlePacket(struct nspire_handle *nsp_handle, NNSEMessage *message,
 			printf("Got request from client %s (product id %c%c)\n", &req->clientID[12], req->clientID[10], req->clientID[11]);
 #endif
 
-			NNSEMessage_AddrResp resp{};
+			NNSEMessage_AddrResp resp = {};
 			resp.hdr.service = message->service;
 			resp.addr = AddrCalc;
 
 			if(!sendMessage(handle, resp))
 				printf("Failed to send message\n");
 
-			NNSEMessage_AddrResp resp2{};
+			NNSEMessage_AddrResp resp2 = {};
 			resp.hdr.service = message->service;
 			resp.addr = 0x80; // No idea
 
@@ -322,7 +322,7 @@ static void handlePacket(struct nspire_handle *nsp_handle, NNSEMessage *message,
 			struct timeval val;
 			gettimeofday(&val, nullptr);
 
-			NNSEMessage_TimeResp resp{};
+			NNSEMessage_TimeResp resp = {};
 			resp.hdr.service = message->service;
 			resp.noidea = 0x80;
 			resp.sec = htonl(uint32_t(val.tv_sec));
@@ -343,7 +343,7 @@ static void handlePacket(struct nspire_handle *nsp_handle, NNSEMessage *message,
 			printf("Got packet for unknown service\n");
 #endif
 
-			NNSEMessage_UnkResp resp{};
+			NNSEMessage_UnkResp resp = {};
 			resp.hdr.service = message->service;
 			resp.noidea[0] = 0x81;
 			resp.noidea[1] = 0x03;
