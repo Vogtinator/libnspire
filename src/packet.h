@@ -42,8 +42,8 @@ struct packet {
     };
 };
 
-#define packet_set_data(p, e1, e2, e3, e4) do { \
-		unsigned char buffer[] = { e1, e2, e3, e4 }; \
+#define packet_set_data(p, ...) do { \
+		unsigned char buffer[] = { __VA_ARGS__ }; \
 		p.data_size = sizeof(buffer); \
 		memcpy(p.data, buffer, p.data_size); \
 	} while (0)
