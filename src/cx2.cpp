@@ -21,14 +21,32 @@
 #include <cstdlib>
 #include <cstring>
 
-#include <arpa/inet.h>
+#include "endianconv.h"
+#ifdef _WIN32
+#include <sys/timeb.h>
+#include <sys/types.h>
+#include <winsock2.h>
+
+int gettimeofday(struct timeval *t, void *timezone) {
+	struct _timeb timebuffer;
+	_ftime( &timebuffer );
+	t->tv_sec=timebuffer.time;
+	t->tv_usec=1000*timebuffer.millitm;
+	return 0;
+}
+#define PACK( __Declaration__ ) __pragma( pack(push, 1) ) __Declaration__ __pragma( pack(pop))
+#else
 #include <sys/time.h>
+#define PACK( __Declaration__ ) __Declaration__ __attribute__((__packed__))
+#endif
 
 #include <libusb.h>
 
 #include "cx2.h"
 #include "error.h"
 #include "packet.h"
+// Windows...
+#undef min
 
 enum Address {
 	AddrAll		= 0xFF,
@@ -49,7 +67,7 @@ enum Service {
 };
 
 // Big endian!
-struct NNSEMessage {
+PACK(struct NNSEMessage {
 	uint8_t 	misc;		// Unused?
 	uint8_t		service;	// Service number. If bit 7 set, an ACK
 	uint8_t     src;		// Address of the source
@@ -59,38 +77,40 @@ struct NNSEMessage {
 	uint16_t    length;		// Length of the packet, including this header
 	uint16_t    seqno;		// Sequence number. Increases by one for every non-ACK packet.
 	uint16_t    csum;		// Checksum. Inverse of the 16bit modular sum with carry added.
+});
 
-	uint8_t     data[0];
-} __attribute__((packed));
-
-struct NNSEMessage_AddrReq {
+PACK(struct NNSEMessage_AddrReq {
 	NNSEMessage hdr;
 	uint8_t     code; // 00
 	uint8_t     clientID[64];
-} __attribute__((packed));
+});
 
-struct NNSEMessage_AddrResp {
+PACK(struct NNSEMessage_AddrResp {
 	NNSEMessage hdr;
 	uint8_t     addr;
-} __attribute__((packed));
+});
 
-struct NNSEMessage_UnkResp {
+PACK(struct NNSEMessage_UnkResp {
 	NNSEMessage hdr;
 	uint8_t     noidea[2]; // 80 03
-} __attribute__((packed));
+});
 
-struct NNSEMessage_TimeReq {
+PACK(struct NNSEMessage_TimeReq {
 	NNSEMessage hdr;
 	uint8_t     code;
-} __attribute__((packed));
+});
 
-struct NNSEMessage_TimeResp {
+PACK(struct NNSEMessage_TimeResp {
 	NNSEMessage hdr;
 	uint8_t     noidea; // 80
 	uint32_t    sec;
 	uint64_t    frac;
 	uint32_t    frac2;
-} __attribute__((packed));
+});
+
+static uint8_t *getPacketData(NNSEMessage *c) {
+	return ((uint8_t *)c) + sizeof(NNSEMessage);
+}
 
 #ifdef DEBUG
 static void dumpPacket(const NNSEMessage *message)
@@ -104,11 +124,11 @@ static void dumpPacket(const NNSEMessage *message)
 	printf("Length: \t%04x\n", ntohs(message->length));
 	printf("SeqNo:  \t%04x\n", ntohs(message->seqno));
 	printf("Csum:   \t%04x\n", ntohs(message->csum));
-	
+
 	auto datalen = ntohs(message->length) - sizeof(NNSEMessage);
 	for(int i = 0; i < datalen; ++i)
-		printf("%02x ", message->data[i]);
-	
+		printf("%02x ", getPacketData(message)[i]);
+
 	printf("\n");
 }
 #endif
@@ -161,7 +181,7 @@ static bool readPacket(libusb_device_handle *handle, NNSEMessage *message, int m
 		r = libusb_bulk_transfer(handle, 0x81, data, remainingLength, &transferred, 1000);
 		if(r < 0)
 			return false;
-		
+
 		data += transferred;
 		remainingLength -= transferred;
 	}
@@ -247,16 +267,15 @@ static void handlePacket(struct nspire_handle *nsp_handle, NNSEMessage *message,
 
 	if(message->reqAck & 1)
 	{
-		NNSEMessage ack = {
-			.misc = message->misc,
-			.service = uint8_t(message->service | AckFlag),
-			.src = message->dest,
-			.dest = message->src,
-			.unknown = message->unknown,
-			.reqAck = uint8_t(message->reqAck & ~1),
-			.length = htons(sizeof(NNSEMessage)),
-			.seqno = message->seqno,
-		};
+		NNSEMessage ack;
+		ack.misc = message->misc;
+		ack.service = uint8_t(message->service | AckFlag);
+		ack.src = message->dest;
+		ack.dest = message->src;
+		ack.unknown = message->unknown;
+		ack.reqAck = uint8_t(message->reqAck & ~1);
+		ack.length = htons(sizeof(NNSEMessage));
+		ack.seqno = message->seqno;
 
 		if(!writePacket(handle, &ack))
 			printf("Failed to ack\n");
@@ -273,23 +292,17 @@ static void handlePacket(struct nspire_handle *nsp_handle, NNSEMessage *message,
 #ifdef DEBUG
 			printf("Got request from client %s (product id %c%c)\n", &req->clientID[12], req->clientID[10], req->clientID[11]);
 #endif
-			
-			NNSEMessage_AddrResp resp = {
-				.hdr = {
-					.service = message->service,
-				},
-				.addr = AddrCalc,
-			};
+
+			NNSEMessage_AddrResp resp;
+			resp.hdr.service = message->service;
+			resp.addr = AddrCalc;
 
 			if(!sendMessage(handle, resp))
 				printf("Failed to send message\n");
 
-			NNSEMessage_AddrResp resp2 = {
-				.hdr = {
-					.service = message->service,
-				},
-				.addr = 0x80, // No idea
-			};
+			NNSEMessage_AddrResp resp2;
+			resp.hdr.service = message->service;
+			resp.addr = 0x80; // No idea
 
 			if(!sendMessage(handle, resp2))
 				printf("Failed to send message\n");
@@ -308,15 +321,12 @@ static void handlePacket(struct nspire_handle *nsp_handle, NNSEMessage *message,
 
 			struct timeval val;
 			gettimeofday(&val, nullptr);
-			
-			NNSEMessage_TimeResp resp = {
-				.hdr = {
-					.service = message->service,
-				},
-				.noidea = 0x80,
-				.sec = htonl(uint32_t(val.tv_sec)),
-				.frac = 0,
-			};
+
+			NNSEMessage_TimeResp resp;
+			resp.hdr.service = message->service;
+			resp.noidea = 0x80;
+			resp.sec = htonl(uint32_t(val.tv_sec));
+			resp.frac = 0;
 
 			if(!sendMessage(handle, resp))
 				printf("Failed to send message\n");
@@ -326,19 +336,17 @@ static void handlePacket(struct nspire_handle *nsp_handle, NNSEMessage *message,
 		}
 		case UnknownService:
 		{
-			if(ntohs(message->length) != sizeof(NNSEMessage) + 1 || message->data[0] != 0x01)
+			if(ntohs(message->length) != sizeof(NNSEMessage) + 1 || getPacketData(message)[0] != 0x01)
 				goto drop;
-		
+
 #ifdef DEBUG
 			printf("Got packet for unknown service\n");
 #endif
-			
-			NNSEMessage_UnkResp resp = {
-				.hdr = {
-					.service = message->service,
-				},
-				.noidea = {0x81, 0x03},
-			};
+
+			NNSEMessage_UnkResp resp;
+			resp.hdr.service = message->service;
+			resp.noidea[0] = 0x81;
+			resp.noidea[1] = 0x03;
 
 			if(!sendMessage(handle, resp))
 				printf("Failed to send message\n");
@@ -348,7 +356,7 @@ static void handlePacket(struct nspire_handle *nsp_handle, NNSEMessage *message,
 		case StreamService:
 		{
 			if(streamdata)
-				*streamdata = message->data;
+				*streamdata = getPacketData(message);
 			if(streamsize)
 				*streamsize = ntohs(message->length) - sizeof(NNSEMessage);
 
@@ -394,15 +402,15 @@ int packet_send_cx2(struct nspire_handle *nsp_handle, char *data, int size)
 
 	int len = sizeof(NNSEMessage) + size;
 	NNSEMessage *msg = reinterpret_cast<NNSEMessage*>(malloc(len));
-	*msg = {
-		.service = StreamService,
-		.src = AddrMe,
-		.dest = AddrCalc,
-		.reqAck = 1,
-		.length = htons(len),
-		.seqno = htons(nextSeqno()),
-	};
-	memcpy(msg->data, data, size);
+
+	msg->service = StreamService;
+	msg->src = AddrMe;
+	msg->dest = AddrCalc;
+	msg->reqAck = 1;
+	msg->length = htons(len);
+	msg->seqno = htons(nextSeqno());
+
+	memcpy(getPacketData(msg), data, size);
 
 	int ret = -NSPIRE_ERR_SUCCESS;
 	if(!writePacket(handle, msg))
@@ -417,9 +425,9 @@ int packet_send_cx2(struct nspire_handle *nsp_handle, char *data, int size)
 		{
 			if(!readPacket(handle, message, maxlen))
 				continue;
-			
+
 			handlePacket(nsp_handle, message);
-			
+
 			if(message->dest == AddrMe
 				&& message->service == (StreamService | AckFlag)
 				&& message->seqno == msg->seqno)
@@ -443,24 +451,24 @@ int packet_recv_cx2(struct nspire_handle *nsp_handle, char *data, int size)
 		return -NSPIRE_ERR_BUSY;
 
 	auto *handle = nsp_handle->device.dev;
-	
+
 	const int maxlen = sizeof(NNSEMessage) + 1472;
 	NNSEMessage * const message = reinterpret_cast<NNSEMessage*>(malloc(maxlen));
-	
+
 	uint8_t *streamdata = nullptr;
 	int streamsize = 0;
 	for(int i = 10; i-- && !streamdata;)
 	{
 		if(!readPacket(handle, message, maxlen))
 			continue;
-		
+
 		handlePacket(nsp_handle, message, &streamdata, &streamsize);
 	}
-	
+
 	if(streamdata)
 		memcpy(data, streamdata, std::min(size, streamsize));
-	
+
 	free(message);
-	
+
 	return streamdata ? -NSPIRE_ERR_SUCCESS : -NSPIRE_ERR_INVALPKT;
 }

@@ -28,12 +28,12 @@ enum nspire_dir_type {
 
 struct nspire_dir_item {
 	char name[240];
-	unsigned long size, date;
+	uint64_t size, date;
 	enum nspire_dir_type type;
 };
 
 struct nspire_dir_info {
-	unsigned long num;
+	uint64_t num;
 	struct nspire_dir_item items[];
 };
 

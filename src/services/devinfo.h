@@ -19,8 +19,12 @@
 #define _DEVINFO_H
 
 #include "api/devinfo.h"
-
-struct deviceinfo_01 {
+#ifdef _WIN32
+#define PACK( ... ) __pragma( pack(push, 1) ) __VA_ARGS__ __pragma( pack(pop))
+#else
+#define PACK( ... ) __VA_ARGS__ __attribute__((__packed__))
+#endif
+PACK(struct deviceinfo_01 {
 	uint64_t flash_free, flash_total;
 	uint64_t ram_free, ram_total;
 
@@ -48,6 +52,6 @@ struct deviceinfo_01 {
 
 	uint8_t electronic_id[17];
 	uint8_t full_electronic_id[27];
-} __attribute__((packed));
+});
 
 #endif
