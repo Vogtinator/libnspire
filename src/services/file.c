@@ -77,24 +77,24 @@ int nspire_file_read(nspire_handle_t *handle, const char *path,
 		void* data, size_t size, size_t *total_bytes) {
 	int ret;
 	size_t len;
-	uint8_t buffer[packet_max_datasize(handle)], *ptr = data;
+	uint8_t buffer[1440], *ptr = data;
 	uint16_t result;
 	uint32_t data_len;
 
 	if ( (ret = service_connect(handle, 0x4060)) )
 		return ret;
 
-	if ( (ret = data_build("hs", buffer, sizeof(buffer), &len,
+	if ( (ret = data_build("hs", buffer, packet_max_datasize(handle), &len,
 			0x0701, path)) )
 		goto end;
 
 	if ( (ret = data_write(handle, buffer, len)) )
 		goto end;
 
-	if ( (ret = data_read(handle, buffer, sizeof(buffer), NULL)) )
+	if ( (ret = data_read(handle, buffer, packet_max_datasize(handle), NULL)) )
 		goto end;
 
-	if ( (ret = data_scan("h000000000w", buffer, sizeof(buffer),
+	if ( (ret = data_scan("h000000000w", buffer, packet_max_datasize(handle),
 			&result, &data_len)) )
 		goto end;
 
@@ -116,15 +116,16 @@ int nspire_file_read(nspire_handle_t *handle, const char *path,
 		if ( (ret = data_read(handle, buffer, len+1, &len)) )
 			goto end;
 
-		if (size) {
-			size_t to_copy = len - 1;
-			memcpy(ptr, buffer + 1, to_copy);
-			size -= to_copy;
-
-			ptr += to_copy;
+		size_t to_copy = len - 1;
+		memcpy(ptr, buffer + 1, (size < to_copy) ? size : to_copy);
+		if (total_bytes) *total_bytes += (size < to_copy) ? size : to_copy;
+		size -= (size < to_copy) ? size : to_copy;
+		if(!size) {
+			goto end;
 		}
 
-		if (total_bytes) *total_bytes += len - 1;
+		ptr += to_copy;
+
 		data_len -= len - 1;
 	}
 
