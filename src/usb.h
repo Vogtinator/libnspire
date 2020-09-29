@@ -18,7 +18,6 @@
 #ifndef _USB_H
 #define _USB_H
 
-#include "endianconv.h"
 #include <libusb.h>
 
 #define NSP_VID 0x0451
