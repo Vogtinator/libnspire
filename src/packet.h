@@ -42,6 +42,7 @@ struct packet {
     };
 };
 
+#define MAX_PACKET_DATA_SIZE 1440
 #define packet_set_data(p, ...) do { \
 		unsigned char buffer[] = { __VA_ARGS__ }; \
 		p.data_size = sizeof(buffer); \

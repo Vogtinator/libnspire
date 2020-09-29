@@ -15,11 +15,10 @@
     along with libnspire.  If not, see <http://www.gnu.org/licenses/>.
 */
 
+#include <libusb.h>
 
 #include "usb.h"
 #include "error.h"
-
-#include <libusb.h>
 
 #define NSP_DEFAULT_CONFIG 1
 #define NSP_DEFAULT_IFACE 0

@@ -77,7 +77,7 @@ int nspire_file_read(nspire_handle_t *handle, const char *path,
 		void* data, size_t size, size_t *total_bytes) {
 	int ret;
 	size_t len;
-	uint8_t buffer[1440], *ptr = data;
+	uint8_t buffer[MAX_PACKET_DATA_SIZE], *ptr = data;
 	uint16_t result;
 	uint32_t data_len;
 
