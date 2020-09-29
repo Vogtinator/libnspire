@@ -108,7 +108,7 @@ PACK(struct NNSEMessage_TimeResp {
 	uint32_t    frac2;
 });
 
-static uint8_t *getPacketData(NNSEMessage *c) {
+static uint8_t *getPacketData(const NNSEMessage *c) {
 	return ((uint8_t *)c) + sizeof(NNSEMessage);
 }
 
