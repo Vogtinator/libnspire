@@ -301,8 +301,8 @@ static void handlePacket(struct nspire_handle *nsp_handle, NNSEMessage *message,
 				printf("Failed to send message\n");
 
 			NNSEMessage_AddrResp resp2 = {};
-			resp.hdr.service = message->service;
-			resp.addr = 0x80; // No idea
+			resp2.hdr.service = message->service;
+			resp2.addr = 0x80; // No idea
 
 			if(!sendMessage(handle, resp2))
 				printf("Failed to send message\n");
