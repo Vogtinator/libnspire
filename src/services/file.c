@@ -77,24 +77,24 @@ int nspire_file_read(nspire_handle_t *handle, const char *path,
 		void* data, size_t size, size_t *total_bytes) {
 	int ret;
 	size_t len;
-	uint8_t buffer[packet_max_datasize(handle)], *ptr = data;
+	uint8_t buffer[MAX_PACKET_DATA_SIZE], *ptr = data;
 	uint16_t result;
 	uint32_t data_len;
 
 	if ( (ret = service_connect(handle, 0x4060)) )
 		return ret;
 
-	if ( (ret = data_build("hs", buffer, sizeof(buffer), &len,
+	if ( (ret = data_build("hs", buffer, packet_max_datasize(handle), &len,
 			0x0701, path)) )
 		goto end;
 
 	if ( (ret = data_write(handle, buffer, len)) )
 		goto end;
 
-	if ( (ret = data_read(handle, buffer, sizeof(buffer), NULL)) )
+	if ( (ret = data_read(handle, buffer, packet_max_datasize(handle), NULL)) )
 		goto end;
 
-	if ( (ret = data_scan("h000000000w", buffer, sizeof(buffer),
+	if ( (ret = data_scan("h000000000w", buffer, packet_max_datasize(handle),
 			&result, &data_len)) )
 		goto end;
 

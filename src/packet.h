@@ -42,8 +42,9 @@ struct packet {
     };
 };
 
-#define packet_set_data(p, arr...) do { \
-		unsigned char buffer[] = { arr }; \
+#define MAX_PACKET_DATA_SIZE 1440
+#define packet_set_data(p, ...) do { \
+		unsigned char buffer[] = { __VA_ARGS__ }; \
 		p.data_size = sizeof(buffer); \
 		memcpy(p.data, buffer, p.data_size); \
 	} while (0)
