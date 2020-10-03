@@ -15,16 +15,9 @@
     along with libnspire.  If not, see <http://www.gnu.org/licenses/>.
 */
 
-#ifndef NSP_NSPIRE_H
-#define NSP_NSPIRE_H
+#ifndef _KEY_H
+#define _KEY_H
 
-#include "devinfo.h"
-#include "key.h"
-#include "dir.h"
-#include "error.h"
-#include "file.h"
-#include "handle.h"
-#include "os.h"
-#include "screenshot.h"
+#include "api/key.h"
 
 #endif
